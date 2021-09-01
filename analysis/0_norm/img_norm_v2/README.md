@@ -1,5 +1,3 @@
 # Image norming
 
-The "experiment" folder contains the code for the experiment that was conducted to determine whether the image pairs were approximately equally salient.
-
-The "analysis" folder contains the anonymized data, scripts for processing and analyzing the data, and graphs showing the results.
+This experiment was conducted to determine whether participants thought any of the images were more salient than the others. They were presented with two images and asked whether someone was more likely to talk about image A or image B. Images were roughly matched in saliency based on the results of the first image norming experiment.
