@@ -1,0 +1,94 @@
+---
+title: "Syntactic adaptation datavyu processing"
+author: "Elizabeth Swanson"
+date: "8/31/2021"
+output: html_document
+---
+
+# Set paths to data
+```{r}
+## preprocessed lookit data
+test_trial_data = read.csv('../data/preprocessed_lookit_data.csv', stringsAsFactors = TRUE)
+
+## datavyu coding files
+datavyu_file_location = '../data/datavyu-video-codes/'
+datavyu_files = dir('../data/datavyu-video-codes/')
+```
+
+# Merge lookit &  datavyu coding
+
+Loop to match Lookit trial information with datavyu video coding:
+```{r}
+all_subs_summary=array() # opens up an empty array
+subcount=0 # starts subject counter at 0
+
+for (file in datavyu_files){
+  this_subid = as.numeric(gsub(".csv", "", file))
+  subcount=subcount+1
+  
+  # get data from all_data
+  this_sub <- test_trial_data %>%
+    filter(subid == this_subid)
+  print(this_subid)
+  
+  # load datavyu coding file
+  coding_file <- read_csv(paste0(datavyu_file_location, this_subid, '.csv')) 
+  #coding_file <- coding_file %>% select(-X5)
+  # regularize column names
+  names(coding_file) <- c("ordinal", "look_onset", "look_offset", "look_type", "unknown")
+  
+  coding_file <- coding_file %>%
+    rowwise() %>% # makes it go row by row -- gets rid of any grouping
+    mutate(look_dir = case_when(
+      look_type == "l" ~ "right",
+      look_type == "r" ~ "left",
+      look_type == "c" ~ "center",
+      look_type == "a" ~ "away" # THIS IS CORRECT - SHOULD BE REVERSED FOR LEFT AND RIGHT. CHILD'S LEFT = SCREEN RIGHT
+    ))
+  
+  # CONVERT DATA TO LONGFORM
+  
+  look_interval = 50
+  
+  coding_file <- coding_file %>% 
+  mutate(subid = this_subid,
+         look_interval = look_interval,
+         full_look_time = ifelse(look_onset != 0 && look_offset != 0, 
+                look_offset - look_onset, NA),
+         look_reps = ceiling(full_look_time/look_interval),
+         look_leftover = full_look_time - ((look_reps - 1)*look_interval))
+
+  coding_file_long <- coding_file %>% filter(! is.na(look_reps))
+  coding_file_long <- coding_file_long[rep(row.names(coding_file_long),
+                                           coding_file_long$look_reps), 1:9]
+  
+  coding_file_long <- coding_file_long %>% group_by(look_onset, subid) %>%
+    mutate(look_start = look_onset + (row_number() - 1)*look_interval,
+          look_end = look_start + (look_interval - 1))
+  
+  if(subcount == 1){
+    video_data_long = data.frame(coding_file_long)
+  }
+  
+  else{
+    video_data_long = rbind(video_data_long, coding_file_long)
+  }
+
+}
+```
+
+Join video codes with general data info:
+```{r}
+test_trial_data$subid <- as.numeric(test_trial_data$subid)
+full_test_data = inner_join(video_data_long, test_trial_data, by = "subid")
+
+# filter out looks that don't fit into a test trial
+full_test_data = full_test_data %>% 
+  filter(look_start >= trial_start_video, look_end <= trial_end_video) %>%
+  select(-unknown)
+```
+
+Write full test trial data to a CSV file.
+```{r}
+write.csv(full_test_data, "../data/full_test_data.csv")
+```

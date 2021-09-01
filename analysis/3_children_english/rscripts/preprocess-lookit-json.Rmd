@@ -1,0 +1,141 @@
+---
+title: "Lookit Preprocessing Script"
+author: "Elizabeth Swanson"
+date: "3/29/2019"
+output: html_document
+---
+
+Load packages and set GG plot theme.
+```{r setup, echo = FALSE}
+library(knitr)
+opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggthemes)
+library(lme4)
+library(lmerTest)
+library(rjson)
+theme_set(theme_bw())
+```
+
+# Set up basics
+
+Load data.
+```{r}
+## raw lookit data
+jf =  '../data/What-s-a-moop--Learning-from-sentence-patterns_all-responses-identifiable.json'
+
+## lookit trial data
+jd <- fromJSON(file = jf)
+
+## total number of participants
+num_subjects = 98
+subjects=seq(1,num_subjects)
+```
+
+Define words by condition.
+```{r}
+noun_cond_words = c("dog", "doll", "horse", "shoe", "ball", "box", "book", "hat")
+verb_cond_words = c("cry", "eat", "wave", "draw", "sleep", "read", "drink", "sit")
+
+noun_fillers = c("dog_filler", "doll_filler", "horse_filler", "shoe_filler", "ball_filler", "box_filler", "book_filler", "hat_filler")
+
+verb_fillers = c("cry_filler", "eat_filler", "wave_filler", "draw_filler", "sleep_filler", "read_filler", "drink_filler", "sit_filler")
+```
+
+
+Name the test trials and the participant IDs to exclude (incomplete sessions, pilot data, etc.).
+```{r}
+test_trials = c('76-test-trial-event-9','83-test-trial-event-10','91-test-trial-event-11','98-test-trial-event-12')
+session_id_exclude = c('38802', '36758', '36759', '36760', '39153', '34340', '32930', '32581', '25920', '36767')
+```
+
+
+This loop puts together important data for each test trial, for each child:
+```{r}
+count_trials=0
+for (s in subjects) {
+  this_sub=jd[[s]]
+  subid = this_sub$response$id
+  uuid = this_sub$response$uuid
+  gender = this_sub$child$gender
+  if (this_sub$response$completed & !this_sub$response$id %in% session_id_exclude & !this_sub$response$withdrawn & !this_sub$response$is_preview){ 
+    # exclude pilot IDs, incomplete sessions, etc.
+    # print(subid) # use this to track how many participants have been run through!
+    exp_data = this_sub$exp_data
+    exp_start_time =  strptime(exp_data$`9-start-recording-with-image`$eventTimings[[6]]$timestamp, "%Y-%M-%dT%H:%M:%OSZ")
+    
+    # get the child's condition
+    if(isTRUE(grepl("filler", exp_data$`16-test-trial-event-1`$audioPlayed)) &
+       isTRUE(grepl("filler", exp_data$`23-test-trial-event-2`$audioPlayed)) &
+       isTRUE(grepl("filler", exp_data$`31-test-trial-event-3`$audioPlayed))
+    ){
+      condition = "baseline"
+    }
+    
+    else if(isTRUE(grepl(paste(verb_fillers, collapse="|"), exp_data$`16-test-trial-event-1`$audioPlayed)) |
+            isTRUE(grepl(paste(verb_fillers, collapse="|"), exp_data$`23-test-trial-event-2`$audioPlayed)) |
+            isTRUE(grepl(paste(verb_fillers, collapse="|"), exp_data$`31-test-trial-event-3`$audioPlayed))
+    ){
+      condition = "noun"
+    }
+    
+    else condition = "verb"
+    
+    for (test_trial in test_trials){
+      count_trials = count_trials + 1
+      trial_no = as.numeric(gsub("^.*?event-","", test_trial))
+      
+      # general information
+      when_completed = this_sub$exp_data[2]$`8-here-we-go`$eventTimings[[1]]$timestamp
+      date_completed = str_split_fixed(when_completed,'T',2)[[1]]
+      exp_start = exp_start_time
+      age_in_weeks = as.numeric(this_sub$child$age_rounded)
+      
+      # trial-specific information
+      if(test_trial == '76-test-trial-event-9'){
+        this_trial_data = exp_data$`76-test-trial-event-9`
+      }
+      else if (test_trial == '83-test-trial-event-10'){
+        this_trial_data = exp_data$`83-test-trial-event-10`
+      }
+      else if (test_trial == '91-test-trial-event-11'){
+        this_trial_data = exp_data$`91-test-trial-event-11`
+      }
+      else this_trial_data = exp_data$`98-test-trial-event-12`
+      
+      # timing information
+      trial_duration = this_trial_data$frameDuration
+      trial_start = strptime(this_trial_data$eventTimings[[1]]$timestamp, "%Y-%M-%dT%H:%M:%OSZ")
+      trial_end = strptime(this_trial_data$eventTimings[[7]]$timestamp, "%Y-%M-%dT%H:%M:%OSZ")
+      trial_start_video = as.numeric(trial_start - exp_start_time)*60000
+      trial_end_video = as.numeric(trial_end - exp_start_time)*60000
+      
+      # image information
+      noun_image = gsub("^.*?img/","", this_trial_data$images[[1]]$src)
+      noun_image = gsub(".jpg", "", noun_image)
+      noun_image_position = this_trial_data$images[[1]]$position
+      verb_image = gsub("^.*?img/","", this_trial_data$images[[2]]$src)
+      verb_image = gsub(".jpg", "", verb_image)
+      verb_image_position = this_trial_data$images[[2]]$position
+      trial_audio = gsub("^.*?mp3/","", this_trial_data$audioPlayed)
+      trial_audio = gsub(".mp3","", trial_audio)
+    
+      # make the full data frame
+      if (count_trials==1){
+      test_trial_data = data.frame(subid, uuid, gender, trial_no, condition, test_trial, date_completed, age_in_weeks, exp_start, trial_duration, trial_start, trial_end, trial_start_video, trial_end_video, noun_image, noun_image_position, verb_image, verb_image_position, trial_audio) 
+      } else {
+      this_trial = data.frame(subid, uuid, gender, trial_no, condition, test_trial, date_completed, age_in_weeks, exp_start, trial_duration, trial_start, trial_end, trial_start_video, trial_end_video, noun_image, noun_image_position, verb_image, verb_image_position, trial_audio)
+      test_trial_data <- rbind(test_trial_data, this_trial)
+      }
+      
+    }
+  }
+}
+```
+
+Write test trial data to a CSV file.
+```{r}
+write.csv(test_trial_data, "../data/preprocessed_lookit_data.csv")
+```
+
+

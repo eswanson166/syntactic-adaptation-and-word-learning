@@ -236,30 +236,3 @@ Compute marginal R^2 (variance explained by fixed effects) and conditional R^2 (
 ```{r}
 r.squaredGLMM(lg.cen) 
 ```
-
-
-## Cluster-based permutation analysis
-
-```{r, eval = FALSE}
-# There is a problem with this because our eye-tracker did not sample at uniform sampling rate--it usually sampled about every 30 ms, but sometimes slightly more or less.
-
-test_data$trackloss <- FALSE
-test_df <- make_eyetrackingr_data(test_data, 
-                                  participant_column = "participant_id",
-                                  trial_column = "trial_no",
-                                  time_column = "time_since_trial_start",
-                                  trackloss_column = "trackloss",
-                                  aoi_columns = "look_action_video",
-                                  treat_non_aoi_looks_as_missing = TRUE)
-
-test_df <- make_time_sequence_data(test_df, time_bin_size = 20,
-                                   predictor_columns = c("condition"),
-                                   other_dv_columns = c("arcsin_prop_action"),
-                                   summarize_by = "participant_id")
-test_df <- make_time_cluster_data(test_df, predictor = "condition",
-                                       aoi = "look_action_video",
-                                       test = "t.test",
-                                       threshold = 1.5,
-                                       formula = arcsin_prop_action ~ condition)
-head(test_df)
-```
