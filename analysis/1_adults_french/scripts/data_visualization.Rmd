@@ -35,35 +35,6 @@ test_data <- et_data %>% filter(descriptor_condition == "test",
                                   look_right_video == TRUE)
 ```
 
-
-DISREGARD THIS - NOT RELEVANT BECAUSE PARTICIPANTS HEARD THE AUDIO ONCE BEFORE THE EVENT PHASE. Take out looks that come before the key syntactic frame.
-```{r}
-test_data <- test_data %>% mutate(frame_start = case_when(
-  descriptor == "bamoule" ~ 1692,
-  descriptor == "nuve" ~ 1761,
-  descriptor == "daze" ~ 1586))
-
-test_data <- test_data %>% 
-  filter(time_since_trial_start >= audio_time_from_start + frame_start)
-```
-
-Add a column for when "la petite" ends.
-```{r}
-test_data <- test_data %>% mutate(frame_end = case_when(
-  descriptor == "bamoule" ~ 1949,
-  descriptor == "nuve" ~ 2098,
-  descriptor == "daze" ~ 1800))
-```
-
-Add a column for when the novel word ends.
-```{r}
-test_data <- test_data %>% mutate(novel_word_end = case_when(
-  descriptor == "bamoule" ~ 2692,
-  descriptor == "nuve" ~ 2653,
-  descriptor == "daze" ~ 2660))
-```
-
-
 Add a column for proportion of looks to the action video on each test trial, and a column with each participant's mean proportion of looks across the three test trials (which will be useful for visualization). We will only examine proportion of looks to the action video, since the proportion of looks to the object video is simply 1 - (proportion of looks to the action video).
 ```{r}
 test_data <- test_data %>% group_by(participant_id, trial_no) %>% mutate(proportion_look_action = mean(look_action_video))
@@ -122,10 +93,10 @@ We had two possible orders that determined whether participants saw the action v
 
 Calculate confidence intervals for the mean proportion of looks to the action video based on participant order.
 ```{r}
-order_sum <- test_data %>% group_by(order) %>% 
-summarise(m_prop_looks_action = mean(unique(subj_prop_look_action)),
-          CI.Low = ci.low(unique(subj_prop_look_action)),
-          CI.High = ci.high(unique(subj_prop_look_action))) %>%
+order_sum <- test_data_collapse %>% group_by(order) %>% 
+summarise(m_prop_looks_action = mean(subj_prop_look_action),
+          CI.Low = ci.low(subj_prop_look_action),
+          CI.High = ci.high(subj_prop_look_action)) %>%
   mutate(YMin = m_prop_looks_action - CI.Low, 
          YMax = m_prop_looks_action + CI.High)
 ```
@@ -140,14 +111,12 @@ ggplot(order_sum) +
   ggtitle("Test trials: Mean proportion of looks to action video based on order") +
   xlab("Order") +
   ylab("Mean proportion of looks") +
-  geom_point(data = test_data, aes(x = order, y = subj_prop_look_action),
+  geom_point(data = test_data_collapse, aes(x = order, y = subj_prop_look_action),
              shape = 21, size = .3) +
   geom_errorbar(data = order_sum, 
                 aes(ymin = YMin, ymax = YMax), width = .25)
 ggsave(file="../graphs/prop_looks_order.pdf",width=6,height=4)
 ```
-
-There is no difference in the proportion of looks based on which order participants were in. This is what we would expect.
 
 ### Proportion of looks to the action video: Test trials
 
@@ -211,45 +180,15 @@ ggsave(file="../graphs/single_timecourse.pdf",width=7,height=3.5)
 
 This participant has a high proportion of looks to the action video on trials 7 and 9, and a low proportion of looks on trial 8.
 
-DIREGARD THIS - Get mean times when "la petite" ends and the novel word ends.
-```{r}
-petite_end = mean(test_data$frame_end - test_data$frame_start)
-novel_word_end = mean(test_data$novel_word_end - test_data$frame_start)
-```
-
-
-Make a new column for time since naming event.
-```{r}
-test_data <- test_data %>% 
-  mutate(time_since_disambig = time_since_trial_start - (audio_time_from_start + frame_start))
-```
-
 
 Separate the data into timebins.
 ```{r}
-test_data_timecourse <- test_data %>% 
-  mutate(time_since_trial_start_ms = time_since_trial_start/10) #%>%
-
-# PUT THIS LATER
-  mutate(timebin = plyr::round_any(time_since_trial_start, 50)) %>%
-  filter(time_since_event_start_ms <= 10000)
-# NOTE THAT HERE WE CONVERT TO MS
-
-test_data_timecourse = test_data_timecourse %>% group_by(participant_id, trial_no) %>%
-  mutate(time_since_event_start = time_since_trial_start_ms - min(time_since_trial_start_ms))
-
-test_data_timecourse = test_data_timecourse %>% mutate(timebin = plyr::round_any(time_since_trial_start_ms, 50))#%>%
-  filter(time_since_event_start_ms <= 10000) # FIX THIS
-  
-  
 test_data_timecourse <- test_data %>% 
   mutate(timebin = plyr::round_any(time_since_trial_start, 500)) %>%
   mutate(timebin_ms = timebin/10) %>%
   filter(timebin_ms <= 10000) %>%
   mutate(timebin_ms_from_start = timebin_ms - 2900)
-
 ```
-
 
 Plot the time course collapsing by trial number.
 ```{r}
@@ -273,24 +212,6 @@ ggplot(prop_action_timecourse_sum) +
   scale_x_continuous(breaks = seq(min(prop_action_timecourse_sum$timebin_ms_from_start), max(prop_action_timecourse_sum$timebin_ms_from_start), by = 1000))
 ggsave(file="../graphs/naming_timecourse_smooth.pdf",width=8,height=5)
 ```
-
-
-
-```{r, eval = FALSE}
-# this is not set to run on its own because it produces so many different graphs, but it is useful for data examination
-
-plyr::d_ply(test_data, .var = "participant_id", .fun = function(x) {
-
-    # Generate the desired plot
-    print(ggplot(x) +
-    aes(x = time_since_trial_start, y = look_action_video, 
-        color = look_action_video) +
-    geom_point() +
-    facet_grid(trial_no ~ .))
-
-})
-```
-
 
 ## Training trials analysis
 
@@ -414,6 +335,7 @@ We see no difference in looking patterns by condition, which reassures us that t
 
 On filler trials, we expect the pattern to be reversed: Participants in the noun condition should look more at the action video, and participants in the verb condition should look more at the object video.
 
+Get data for filler trials specifically.
 ```{r}
 filler_data <- et_data %>% filter(descriptor_condition == "noun_filler" |
                                     descriptor_condition == "verb_filler",
