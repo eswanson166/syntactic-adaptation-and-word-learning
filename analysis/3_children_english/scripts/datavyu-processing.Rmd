@@ -29,21 +29,19 @@ for (file in datavyu_files){
   # get data from all_data
   this_sub <- test_trial_data %>%
     filter(subid == this_subid)
-  print(this_subid)
   
   # load datavyu coding file
   coding_file <- read_csv(paste0(datavyu_file_location, this_subid, '.csv')) 
-  #coding_file <- coding_file %>% select(-X5)
+  
   # regularize column names
   names(coding_file) <- c("ordinal", "look_onset", "look_offset", "look_type", "unknown")
-  
   coding_file <- coding_file %>%
     rowwise() %>% # makes it go row by row -- gets rid of any grouping
     mutate(look_dir = case_when(
       look_type == "l" ~ "right",
       look_type == "r" ~ "left",
       look_type == "c" ~ "center",
-      look_type == "a" ~ "away" # THIS IS CORRECT - SHOULD BE REVERSED FOR LEFT AND RIGHT. CHILD'S LEFT = SCREEN RIGHT
+      look_type == "a" ~ "away" # THIS IS CORRECT - IT SHOULD BE REVERSED FOR LEFT AND RIGHT. CHILD'S LEFT = SCREEN RIGHT
     ))
   
   # CONVERT DATA TO LONGFORM

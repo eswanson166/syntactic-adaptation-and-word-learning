@@ -22,7 +22,7 @@ theme_set(theme_bw())
 Load data.
 ```{r}
 ## raw lookit data
-jf =  '../data/What-s-a-moop--Learning-from-sentence-patterns_all-responses-identifiable.json'
+jf =  '../data/What-s-a-moop--Learning-from-sentence-patterns_all-responses.json'
 
 ## lookit trial data
 jd <- fromJSON(file = jf)

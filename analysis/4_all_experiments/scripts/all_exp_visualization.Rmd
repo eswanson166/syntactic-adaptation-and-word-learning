@@ -1,0 +1,421 @@
+---
+title: "Visualization for syntactic adaptation experiments 1, 2, and 3"
+author: "Elizabeth Swanson"
+date: "3/29/2022"
+output: html_document
+---
+
+# Set-up
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+source("helpers.R")
+library(wesanderson)
+library(ggpubr)
+library(gridExtra)
+library(grid)
+theme_set(theme_bw()) 
+```
+
+Read in clean data files (make sure the clean_data files are unzipped for Experiments 1 and 2).
+
+```{r}
+exp1_data = read.csv('./../../1_adults_french/data/clean_data.csv', stringsAsFactors = TRUE)
+
+exp2_data = read.csv('./../../2_adults_english/data/clean_data.csv', stringsAsFactors = TRUE)
+
+exp3_data = read.csv('./../../3_children_english/data/full_test_data_for_analysis.csv', stringsAsFactors = TRUE)
+```
+
+# Proportion of looks
+
+## Experiment 1
+
+We want to examine the test trials, specifically during the event stage when participants hear the ambiguous word and see both videos. We exclude looks that aren't to one of the two videos.
+```{r}
+exp1_test_data <- exp1_data %>% filter(descriptor_condition == "test",
+                                video_stage == "event",
+                                look_left_video == TRUE | 
+                                  look_right_video == TRUE)
+```
+
+Add a column for proportion of looks to the action video on each test trial, and a column with each participant's mean proportion of looks across the three test trials (which will be useful for visualization). We will only examine proportion of looks to the action video, since the proportion of looks to the object video is simply 1 - (proportion of looks to the action video).
+```{r}
+exp1_test_data <- exp1_test_data %>% group_by(participant_id, trial_no) %>% mutate(trial_prop_action = mean(look_action_video))
+
+exp1_test_data_uniq <- exp1_test_data %>% group_by(participant_id, trial_no) %>%
+  filter(row_number() == 1) %>% group_by(participant_id) %>%
+  mutate(subj_prop_action = mean(trial_prop_action))
+
+exp1_test_data_uniq = exp1_test_data_uniq %>% mutate(experiment = "a) French - adults")
+```
+
+Calculate confidence intervals for the mean proportion of looks to the action video by condition.
+```{r}
+exp1_test_sum <- exp1_test_data_uniq %>% group_by(participant_id) %>%
+  filter(row_number() == 1) %>% group_by(condition) %>% 
+  # note: we pull out only the first row because each subject only has ONE mean calculated across all three test trials and we don't want to triple-count each data point
+summarise(cond_prop_action = mean(subj_prop_action),
+          sd = sd(subj_prop_action),
+          CI.Low = ci.low(subj_prop_action),
+          CI.High = ci.high(subj_prop_action), n = n()) %>%
+  mutate(YMin = cond_prop_action - CI.Low, 
+         YMax = cond_prop_action + CI.High)
+
+exp1_test_sum = exp1_test_sum %>% mutate(experiment = "a) French - adults")
+```
+
+## Experiment 2
+
+We want to examine the test trials, specifically during the event stage when participants hear the ambiguous word and see both images. We exclude looks that aren't to one of the two images.
+```{r}
+exp2_test_data <- exp2_data %>% filter(target_audio_type == "novel",
+                                trial_stage == "event",
+                                look_left_img == TRUE | 
+                                  look_right_img == TRUE)
+```
+
+Pull out looks after the disambiguation point of the syntactic frame.
+```{r}
+exp2_test_data_event <- exp2_test_data %>% 
+  filter(time_since_trial_start >= trial_frame_start & 
+           time_since_trial_start <=  trial_frame_start + 9000)
+```
+
+Add a column for proportion of looks to the action image on each test trial, and a column with each participant's mean proportion of looks across the four test trials (which will be useful for visualization). We will only examine proportion of looks to the action image, since the proportion of looks to the object image is simply 1 - (proportion of looks to the action image).
+```{r}
+exp2_test_data_event <- exp2_test_data_event %>% group_by(participant_id, trial_no) %>% mutate(trial_prop_action = mean(look_action_img))
+
+exp2_test_data_uniq <- exp2_test_data_event %>% 
+  group_by(participant_id, trial_no) %>%
+  filter(row_number() == 1) %>% group_by(participant_id) %>%
+  mutate(subj_prop_action = mean(trial_prop_action))
+
+exp2_test_data_uniq = exp2_test_data_uniq %>% mutate(experiment = "b) English - adults")
+```
+
+Calculate confidence intervals for the mean proportion of looks to the action image by condition.
+```{r}
+exp2_test_sum <- exp2_test_data_uniq %>% group_by(participant_id) %>% 
+  filter(row_number() == 1) %>% group_by(condition) %>%
+  # note: we pull out only the first row because each subject only has ONE mean calculated across all four test trials and we don't want to quadruple-count each data point
+summarise(cond_prop_action = mean(subj_prop_action),
+          sd = sd(subj_prop_action),
+          CI.Low = ci.low(subj_prop_action),
+          CI.High = ci.high(subj_prop_action), 
+          n = n()) %>%
+  mutate(YMin = cond_prop_action - CI.Low, 
+         YMax = cond_prop_action + CI.High)
+
+exp2_test_sum = exp2_test_sum %>% mutate(experiment = "b) English - adults")
+```
+
+## Experiment 3
+
+Take only the first row of each trial (since we average across trials):
+```{r}
+exp3_test_data_uniq = exp3_data %>% group_by(subid, trial_no) %>%
+  filter(row_number() == 1) %>%
+  group_by(subid) %>%
+  mutate(subj_prop_action = mean(trial_action_prop))
+
+exp3_test_data_uniq = exp3_test_data_uniq %>% mutate(experiment = "c) English - children")
+```
+
+Summarize average action image proportion looking time by condition.
+```{r}
+exp3_test_sum = exp3_test_data_uniq %>% group_by(subid) %>% 
+  filter(row_number() == 1) %>% 
+  group_by(condition) %>% 
+  summarise(cond_prop_action = mean(na.omit(subj_prop_action)),
+            sd = sd(na.omit(subj_prop_action)),
+            CI.Low = ci.low(na.omit(subj_prop_action)),
+            CI.High = ci.high(na.omit(subj_prop_action)),
+            n = n())  %>%
+              mutate(YMin = cond_prop_action - CI.Low, 
+                     YMax = cond_prop_action + CI.High)
+
+exp3_test_sum = exp3_test_sum %>% mutate(experiment = "c) English - children")
+```
+
+## Combine experiments
+
+Combine the data for all three:
+```{r}
+all_exp_test_sum = rbind(exp1_test_sum, exp2_test_sum, exp3_test_sum)
+all_exp_test_sum$condition= factor(all_exp_test_sum$condition, levels = c("baseline", "noun", "verb"))
+
+all_exp_test_uniq = rbind(exp1_test_data_uniq, exp2_test_data_uniq, exp3_test_data_uniq)
+```
+
+Make a bar graph that combines all three experiments' results:
+```{r}
+ggplot(all_exp_test_sum) +
+  aes(x = condition, y = cond_prop_action, fill = condition) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(name = "Condition",values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  ggtitle("Mean proportion of looks to action image by experiment") +
+  xlab("Condition") +
+  ylab("Mean proportion of looks") +
+  geom_point(data = all_exp_test_uniq, aes(x = condition, y = subj_prop_action),
+             shape = 20, size = .3) +
+  geom_errorbar(data = all_exp_test_sum, 
+                aes(ymin = YMin, ymax = YMax), width = .25) +
+  facet_wrap(vars(experiment))
+
+ggsave("../graphs/all_exp_mean_prop_action_look.pdf", width = 8, height = 4)
+```
+
+# Time course
+
+## Experiment 1
+
+Separate the data into timebins.
+```{r}
+exp1_timecourse_data <- exp1_test_data %>% 
+  mutate(timebin = plyr::round_any(time_since_trial_start, 500)) %>%
+  mutate(timebin_ms = timebin/10) %>%
+  filter(timebin_ms <= 10000) %>%
+  mutate(timebin_ms_from_start = timebin_ms - 2900)
+```
+
+Plot the time course collapsing by trial number.
+```{r}
+exp1_timecourse_sum <- exp1_timecourse_data %>% 
+  group_by(timebin_ms_from_start, condition) %>% 
+  summarise(timebin_prop_action = mean(look_action_video))
+```
+
+Make the plot.
+```{r}
+exp1_tc = ggplot(exp1_timecourse_sum) +
+  aes(x = timebin_ms_from_start, y = timebin_prop_action, color = condition) +
+  geom_point(size = .3) +
+  geom_smooth() +
+  ggtitle("a) Experiment 1: French — adults") +
+  xlab("Time since images appeared on-screen (ms)") +
+  ylab("") +
+  ylim(c(0, 1)) +
+  scale_color_manual(name="Condition", limits = c("baseline", "noun", "verb"), values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  geom_hline(yintercept = .5, linetype = "dashed") +
+  scale_x_continuous(breaks = seq(min(exp1_timecourse_sum$timebin_ms_from_start), max(exp1_timecourse_sum$timebin_ms_from_start), by = 1000))
+```
+
+## Experiment 2
+
+Get mean times when "the girls" ends and the novel word ends.
+```{r}
+exp2_girls_end = mean(exp2_test_data_uniq$frame_end - exp2_test_data_uniq$frame_start)
+exp2_novel_word_end = mean(exp2_test_data_uniq$novel_word_end - exp2_test_data_uniq$frame_start)
+```
+
+Make a new column for time since naming event.
+```{r}
+exp2_test_data <- exp2_test_data %>% 
+  mutate(time_since_disambig = time_since_trial_start - trial_frame_start)
+```
+
+Separate the data into timebins.
+```{r}
+exp2_test_data_timecourse <- exp2_test_data %>% 
+  filter(time_since_disambig <= 6250) %>%
+  mutate(timebin = plyr::round_any(time_since_disambig, 50))
+```
+
+Plot the timecourse.
+```{r}
+exp2_timecourse_sum <- exp2_test_data_timecourse %>% 
+  group_by(timebin, condition) %>% 
+  summarise(timebin_prop_action = mean(look_action_img))
+```
+
+Make the plot.
+```{r}
+exp2_tc = ggplot(exp2_timecourse_sum) +
+  aes(x = timebin, y = timebin_prop_action, color = condition) +
+  geom_point(size = .3) +
+  geom_smooth() +
+  ggtitle("b) Experiment 2: English — adults") +
+  xlab("Time since onset of ambiguous syntactic frame (ms)") +
+  ylab("") +
+  scale_color_manual(name="Condition", values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  geom_hline(yintercept = .5, linetype = "dashed") +
+  geom_vline(xintercept = 0, colour = "black") +
+  # mean end of 'the g-'
+  geom_vline(xintercept = exp2_girls_end, linetype = "dashed") +
+  # mean end of 'the girls'
+  geom_vline(xintercept = exp2_novel_word_end, linetype= "dotted") +
+  # mean end of novel word
+  scale_x_continuous(breaks = seq(min(exp2_timecourse_sum$timebin), 
+                                  max(exp2_timecourse_sum$timebin), by = 1000))
+```
+
+## Experiment 3
+
+Load data:
+```{r}
+exp3_timecourse_sum = read.csv("../data/exp3_timecourse.csv")
+```
+
+Pull out constants:
+```{r}
+exp3_girls_end = unique(exp3_timecourse_sum$girls_end)
+exp3_novel_word_end = unique(exp3_timecourse_sum$novel_word_end)
+```
+
+Save time course graph:
+```{r}
+exp3_tc = ggplot(exp3_timecourse_sum) +
+  aes(x = timebin, y = timebin_prop_action, color = condition) +
+  geom_point(size = .3) +
+  geom_smooth() +
+  ggtitle("c) Experiment 3: English — children") +
+  xlab("Time since onset of ambiguous syntactic frame (ms)") +
+  ylab("") +
+  scale_color_manual(name="Condition", values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  geom_hline(yintercept = .5, linetype = "dashed") +
+  geom_vline(xintercept = 0, color = "black") +
+  ylim(c(0, 1)) +
+  geom_vline(xintercept = exp3_girls_end, linetype = "dashed") +
+  geom_vline(xintercept = exp3_novel_word_end, linetype= "dotted") +
+  scale_x_continuous(breaks = seq(min(exp3_timecourse_sum$timebin), 
+                                  max(exp3_timecourse_sum$timebin), by = 1000))
+```
+
+## Combined time course plot
+
+Combine the time course plots:
+```{r}
+all_exp_tc = ggarrange(exp1_tc, exp2_tc, exp3_tc, ncol = 1, nrow = 3, common.legend = TRUE, legend = "right")
+annotate_figure(all_exp_tc, left = textGrob("Mean proportion of looks", rot = 90, vjust = 1, gp = gpar(cex = 1.1)), top = textGrob("Time course: Mean proportion of looks to action image", hjust = .55, gp = gpar(cex = 1.3)))
+
+ggsave("../graphs/all_experiments_time_course.pdf", width = 7, height = 9)
+```
+
+# Difference in proportion of looks
+
+## Experiment 2
+
+Load data on difference in proportion looks to action image before vs. after hearing "The g-":
+```{r}
+exp2_diff_prop_action = read.csv("../data/exp2_diff_prop_action.csv", stringsAsFactors = TRUE)
+exp2_diff_prop_action$experiment = "a) English - adults"
+```
+
+Summarize:
+```{r}
+exp2_diff_prop_action_sum = exp2_diff_prop_action %>% 
+  group_by(participant_id) %>%
+  filter(row_number() == 1) %>% 
+  group_by(condition) %>% 
+  summarise(cond_diff_prop_action = mean(na.omit(subj_diff_prop_action)),
+            sd = sd(na.omit(subj_diff_prop_action)),
+            CI.Low = ci.low(na.omit(subj_diff_prop_action)),
+            CI.High = ci.high(na.omit(subj_diff_prop_action)),
+            n = n()) %>%
+              mutate(YMin = cond_diff_prop_action - CI.Low, 
+                     YMax = cond_diff_prop_action + CI.High,
+                     experiment = "a) English - adults")
+```
+
+Graph the difference in proportion looking to action image before the structure vs. after.
+```{r}
+exp2_diff = ggplot(exp2_diff_prop_action_sum) +
+  aes(x = condition, y = cond_diff_prop_action, fill = condition) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(name = "Condition",values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  ggtitle("Adults: Difference in mean proportion of looks to action image") +
+  xlab("Condition") +
+  ylab(" Diff. in mean prop. of looks before vs. after syntactic frame") +
+ geom_point(data = exp2_diff_prop_action, aes(x = condition, y = subj_diff_prop_action), shape = 21, size = .5) +
+  geom_errorbar(data = exp2_diff_prop_action_sum, 
+                aes(ymin = YMin, ymax = YMax), width = .25)
+```
+
+## Experiment 3
+
+Load data on difference in proportion looks to action image before vs. after hearing "The g-":
+```{r}
+exp3_diff_prop_action = read.csv("../data/exp3_diff_prop_action.csv", stringsAsFactors = TRUE)
+exp3_diff_prop_action$experiment = "b) English - children"
+```
+
+Summarize:
+```{r}
+exp3_diff_prop_action_sum = exp3_diff_prop_action %>% 
+  group_by(subid) %>%
+  filter(row_number() == 1) %>% 
+  group_by(condition) %>% 
+  summarise(sd = sd(na.omit(subj_diff_prop_action)),
+            cond_diff_prop_action = mean(na.omit(subj_diff_prop_action)),
+            CI.Low = ci.low(na.omit(subj_diff_prop_action)),
+            CI.High = ci.high(na.omit(subj_diff_prop_action)),
+            n = n()) %>%
+              mutate(YMin = cond_diff_prop_action - CI.Low, 
+                     YMax = cond_diff_prop_action + CI.High,
+                     experiment = "b) English - children")
+```
+
+Graph the difference in proportion looking to action image before the structure vs. after.
+```{r}
+exp3_diff = ggplot(exp3_diff_prop_action_sum) +
+  aes(x = condition, y = cond_diff_prop_action, fill = condition) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(name = "Condition",values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  ggtitle("Adults: Difference in mean proportion of looks to action image") +
+  xlab("Condition") +
+  ylab(" Diff. in mean prop. of looks before vs. after syntactic frame") +
+ geom_point(data = exp3_diff_prop_action, aes(x = condition, y = subj_diff_prop_action), shape = 21, size = .5) +
+  geom_errorbar(data = exp3_diff_prop_action_sum, 
+                aes(ymin = YMin, ymax = YMax), width = .25)
+```
+
+# Combined difference in proportion of looks to action image
+
+Combine the data for all three:
+```{r}
+all_exp_diff_action_prop = rbind(exp2_diff_prop_action_sum, exp3_diff_prop_action_sum)
+all_exp_diff_action_prop$condition = factor(all_exp_diff_action_prop$condition, levels = c("baseline", "noun", "verb"))
+```
+
+Pull out unique subject data for all experiments:
+```{r}
+exp2_diff_prop_action_uniq = exp2_diff_prop_action %>% select(condition, participant_id, trial_no, target_audio, subj_diff_prop_action, experiment) %>%
+  group_by(participant_id) %>%
+  filter(row_number() == 1)
+
+exp3_diff_prop_action_uniq = exp3_diff_prop_action %>% select(condition, subid, trial_no, trial_audio, subj_diff_prop_action, experiment) %>%
+  group_by(subid) %>%
+  filter(row_number() == 1)
+```
+
+Combine unique subject data:
+```{r}
+exp3_diff_prop_action_uniq = exp3_diff_prop_action_uniq %>% 
+  rename(participant_id = subid)
+
+all_exp_diff_action_prop_uniq = rbind(exp2_diff_prop_action_uniq, exp3_diff_prop_action_uniq)
+
+all_exp_diff_action_prop_uniq$condition = factor(all_exp_diff_action_prop_uniq$condition, levels = c("baseline", "noun", "verb"))
+```
+
+Make a bar graph that combines all three experiments' results:
+```{r}
+ggplot(all_exp_diff_action_prop) +
+  aes(x = condition, y = cond_diff_prop_action, fill = condition) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(name = "Condition",values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  ggtitle("Difference in proportion of looks to action image") +
+  xlab("Condition") +
+  ylab("Diff. in mean prop. of looks before vs. after syntactic frame") +
+  geom_point(data = all_exp_diff_action_prop_uniq, aes(x = condition, y = subj_diff_prop_action),
+             shape = 20, size = .3) +
+  geom_errorbar(data = all_exp_diff_action_prop, 
+                aes(ymin = YMin, ymax = YMax), width = .25) +
+  facet_wrap(vars(experiment))
+
+ggsave("../graphs/all_exp_diff_prop_action.pdf", width = 6, height = 4)
+```
+
+

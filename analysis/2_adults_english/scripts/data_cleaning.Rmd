@@ -1,5 +1,5 @@
 ---
-title: "Experiment 1 data cleaning"
+title: "Experiment 2 data cleaning"
 output: word_document
 ---
 
@@ -7,6 +7,7 @@ output: word_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(readr)
+source('helpers.R')
 ```
 
 ## Loading data
@@ -69,7 +70,7 @@ et_data <- et_data %>% mutate(time_since_trial_start = time - starting_time)
 ```
 
 
-We also add a column stating what part of the video is playing at that data point.
+We also add a column stating what part of the trial is happening at that data point.
 ```{r}
 et_data$trial_stage <- "left_preview"
 et_data$trial_stage[et_data$time_since_trial_start > et_data$end_pre1_time] <- "right_preview"
@@ -107,7 +108,7 @@ et_data$look_left_img <- FALSE
 et_data$look_left_img[(et_data$img1_left_x <= et_data$x) & (et_data$x <= et_data$img1_right_x) & (et_data$top_y <= et_data$y) & (et_data$y <= et_data$bottom_y)] <- TRUE
 ```
 
-We add a column that is TRUE if the participant was looking at the video on the right.
+We add a column that is TRUE if the participant was looking at the image on the right.
 ```{r}
 et_data$look_right_img <- FALSE
 et_data$look_right_img[(et_data$img2_left_x <= et_data$x) & (et_data$x <= et_data$img2_right_x) & (et_data$top_y <= et_data$y) & (et_data$y <= et_data$bottom_y)] <- TRUE
@@ -135,7 +136,7 @@ et_data$look_action_img[et_data$look_left_img == TRUE & et_data$action_img == "l
 et_data$look_action_img[et_data$look_right_img == TRUE & et_data$action_img == "right"] <- TRUE
 ```
 
-We also add a column that is TRUE if the participant was looking at the noun image. (Since we discount looks that are not to either image, this is not really needed for this analysis, but would be useful if we did not discount those looks.)
+We also add a column that is TRUE if the participant was looking at the object image. (Since we discount looks that are not to either image, this is not really needed for this analysis, but would be useful if we did not discount those looks.)
 ```{r}
 et_data$look_object_img <- FALSE
 et_data$look_object_img[et_data$look_left_img == TRUE & et_data$action_img == "right"] <- TRUE
@@ -143,25 +144,27 @@ et_data$look_object_img[et_data$look_right_img == TRUE & et_data$action_img == "
 ```
 
 
-## Start of event phase
+## Audio timing on test trials
+
+This section will add important information about the timing of the audio on test trials.
 
 Add information about when 'girls' starts:
 ```{r}
 et_data <- et_data %>% mutate(frame_start = case_when(
-  trial_audio == "dax" ~ 2016,
-  trial_audio == "vash" ~ 1994,
-  trial_audio == "smick" ~ 1987,
-  trial_audio == "nup" ~ 1992))
+  target_audio == "dax" ~ 2016,
+  target_audio == "vash" ~ 1994,
+  target_audio == "smick" ~ 1987,
+  target_audio == "nup" ~ 1992))
 ```
 
 
 Add info about when 'girls' ends:
 ```{r}
 et_data <- et_data %>% mutate(frame_end = case_when(
-  trial_audio == "dax" ~ 2497,
-  trial_audio == "vash" ~ 2472,
-  trial_audio == "smick" ~ 2485,
-  trial_audio == "nup" ~ 2443))
+  target_audio == "dax" ~ 2497,
+  target_audio == "vash" ~ 2472,
+  target_audio == "smick" ~ 2485,
+  target_audio == "nup" ~ 2443))
 ```
 
 Add the amount of time until the end of the novel word:
@@ -211,7 +214,8 @@ et_data <- et_data %>% mutate(novel_word_end = case_when(
 Add a column with time that the frame start occurs in the video:
 ```{r}
 et_data = et_data %>% 
-  mutate(trial_frame_start = start_event_time + frame_start)
+  mutate(trial_frame_start = start_event_time + frame_start,
+         trial_frame_end = start_event_time + frame_end)
 ```
 
 

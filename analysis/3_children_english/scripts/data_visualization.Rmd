@@ -1,0 +1,317 @@
+---
+title: "Experiment 3 Visualization"
+output: html_document
+---
+
+Load packages and set GG plot theme:
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyverse)
+library(wesanderson)
+library(gridExtra)
+library(ggpubr)
+library(grid)
+source("helpers.R")
+theme_set(theme_bw())
+```
+
+# Load data
+
+Read in data file:
+```{r}
+full_test_data = read.csv('../data/full_test_data.csv', stringsAsFactors = TRUE)
+```
+
+# Add timing information
+
+Add information about when 'girls' starts:
+```{r}
+full_test_data <- full_test_data %>% mutate(frame_start = case_when(
+  trial_audio == "dax" ~ 2016,
+  trial_audio == "vash" ~ 1994,
+  trial_audio == "smick" ~ 1987,
+  trial_audio == "nup" ~ 1992))
+```
+
+Add info about when 'girls' ends:
+```{r}
+full_test_data <- full_test_data %>% mutate(frame_end = case_when(
+  trial_audio == "dax" ~ 2497,
+  trial_audio == "vash" ~ 2472,
+  trial_audio == "smick" ~ 2485,
+  trial_audio == "nup" ~ 2443))
+```
+
+Add info about when novel word ends:
+```{r}
+full_test_data <- full_test_data %>% mutate(novel_word_end = case_when(
+  trial_audio == "ball" ~ 2828,
+  trial_audio == "ball_filler" ~ 3239,
+  trial_audio == "book" ~ 3142,
+  trial_audio == "book_filler" ~ 3279,
+  trial_audio == "box" ~ 3381,
+  trial_audio == "box_filler" ~ 3386,
+  trial_audio == "cry" ~ 3253,
+  trial_audio == "cry_filler" ~ 3183,
+  trial_audio == "dog" ~ 3240,
+  trial_audio == "dog_filler" ~ 3352,
+  trial_audio == "draw" ~ 3137,
+  trial_audio == "draw_filler" ~ 2935,
+  trial_audio == "drink" ~ 3116,
+  trial_audio == "drink_filler" ~ 2881,
+  trial_audio == "eat" ~ 3189,
+  trial_audio == "eat_filler" ~ 2814,
+  trial_audio == "dax" ~ 3354,
+  trial_audio == "fep" ~ 3087,
+  trial_audio == "hat" ~ 3205,
+  trial_audio == "hat_filler" ~ 3409,
+  trial_audio == "heth" ~ 3078,
+  trial_audio == "horse" ~ 3276,
+  trial_audio == "horse_filler" ~ 3459,
+  trial_audio == "moop" ~ 2844,
+  trial_audio == "nup" ~ 2996,
+  trial_audio == "read" ~ 3279,
+  trial_audio == "read_filler" ~ 3035,
+  trial_audio == "shoe" ~ 3453,
+  trial_audio == "shoe_filler" ~ 3136,
+  trial_audio == "sit" ~ 3229,
+  trial_audio == "sit_filler" ~ 2948,
+  trial_audio == "sleep" ~ 3281,
+  trial_audio == "sleep_filler" ~ 2991,
+  trial_audio == "smick" ~ 3261,
+  trial_audio == "vash" ~ 3275,
+  trial_audio == "wave" ~ 3284,
+  trial_audio == "wave_filler" ~ 2824
+))
+```
+
+Add a column with time that the frame start occurs in the video, and specify that we are only looking at event data (after image familiarization on test trials):
+```{r}
+event_data = full_test_data %>% 
+  mutate(trial_frame_start = trial_start_video + frame_start,
+         trial_frame_end = trial_start_video + frame_end,
+         one_look_length = look_end - look_start)
+```
+
+Add a column for current time since syntactic frame ('the girls') start:
+```{r}
+event_data = event_data %>% 
+  mutate(time_since_frame_start = look_start - trial_frame_start)
+```
+
+Get mean times when "the girls" ends and the novel word ends.
+```{r}
+girls_end = mean(event_data$frame_end - event_data$frame_start)
+novel_word_end = mean(event_data$novel_word_end - event_data$frame_start)
+```
+
+Remove trials where the child was not paying attention for more than half the trial:
+```{r}
+one_look_length = event_data$look_interval
+event_data = event_data %>% group_by(subid, trial_no) %>%
+  mutate(away_look_length = sum(look_dir == "away")*one_look_length) %>%
+  filter(away_look_length < .5*(trial_end_video - trial_start_video))
+```
+
+Filter out only looks to the left or right side of the screen:
+```{r}
+event_data = event_data %>% filter(look_dir == "left" | look_dir == "right")
+event_data$look_dir = factor(event_data$look_dir, levels = c("left", "right"))
+```
+
+Take out looks that come after the trial should have ended (likely while the next slide was loading):
+```{r}
+event_data = event_data %>% filter(time_since_frame_start <= 6000)
+```
+
+Add a column to indicate whether the participant was looking at the action image at that time point.
+```{r}
+event_data <- event_data %>% group_by(subid, trial_no) %>% 
+  mutate(look_action_img = ifelse(look_dir == verb_image_position, TRUE, FALSE))
+```
+
+# Time course graph
+
+Separate the data into timebins.
+```{r}
+event_data_timecourse <- event_data %>% 
+  mutate(timebin = plyr::round_any(time_since_frame_start, 50))
+```
+
+Summarise the time course data by trial.
+```{r}
+timecourse_sum_trial <- event_data_timecourse %>% 
+  group_by(timebin, condition, trial_no) %>% 
+  summarise(timebin_prop_action = mean(look_action_img),
+            n = n())
+```
+
+Make the time course graph with separate trials.
+```{r}
+ggplot(timecourse_sum_trial) +
+  aes(x = timebin, y = timebin_prop_action, color = condition) +
+  geom_point(size = .2) +
+  geom_smooth(size = .2) +
+  facet_grid(trial_no ~ .) +
+  ggtitle("Proportion of looks to action image on test trials") +
+  xlab("Time since syntactic frame disambiguation (ms) during event phase") +
+  ylab("Condition") +
+  scale_color_manual(name="Condition", values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dark blue")) +
+  geom_hline(yintercept = .5, linetype = "dashed") +
+  geom_vline(xintercept = 0) +
+  ylim(c(0, 1))
+  
+ggsave(file="../graphs/timecourse_trial_smooth.pdf",width=8,height=6)
+```
+
+Or collapse across trials:
+```{r}
+timecourse_sum <- event_data_timecourse %>% 
+  group_by(timebin, condition) %>% 
+  summarise(timebin_prop_action = mean(look_action_img))  %>%
+  mutate(girls_end = girls_end, novel_word_end = novel_word_end)
+```
+
+Generate the graph collapsed across trials.
+```{r}
+ggplot(timecourse_sum) +
+  aes(x = timebin, y = timebin_prop_action, color = condition) +
+  geom_point(size = .3) +
+  geom_smooth() +
+  ggtitle("Time course: Proportion of looks to action image") +
+  xlab("Time since onset of ambiguous syntactic frame (ms)") +
+  ylab("Proportion of looks to action image") +
+  scale_color_manual(name="Condition", values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  geom_hline(yintercept = .5, linetype = "dashed") +
+  geom_vline(xintercept = 0, color = "black") +
+  ylim(c(0, 1)) +
+  geom_vline(xintercept = girls_end, linetype = "dashed") +
+  geom_vline(xintercept = novel_word_end, linetype= "dotted") +
+  scale_x_continuous(breaks = seq(min(timecourse_sum$timebin), 
+                                  max(timecourse_sum$timebin), by = 1000))
+ggsave(file="../graphs/timecourse_overall_smooth.pdf",width=8,height=6)
+```
+
+Save this data to generate the time course for all experiments:
+```{r}
+write.csv(timecourse_sum, "./../../4_all_experiments/data/exp3_timecourse.csv")
+```
+
+
+## Proportion of looks graph
+
+Pull out looks after beginning of syntactic frame:
+```{r}
+event_data_disambig = event_data %>% filter(look_start >= trial_frame_start)
+```
+
+Calculate each subject's proportion looking to action image on each trial.
+```{r}
+event_data_disambig <- event_data_disambig %>% 
+  group_by(subid, trial_no) %>% 
+  mutate(trial_prop_action = mean(look_action_img))
+```
+
+Calculate each subject's average action image proportion looking time across test trials.
+```{r}
+event_data_disambig_uniq = event_data_disambig %>% 
+  group_by(subid, trial_no) %>%
+  filter(row_number() == 1) %>% 
+  group_by(subid) %>% 
+  mutate(subj_prop_action = mean(trial_prop_action))
+```
+
+Summarize average action image proportion looking time by condition.
+```{r}
+action_look_sum = event_data_disambig_uniq %>% group_by(subid) %>% 
+  filter(row_number() == 1) %>% 
+  group_by(condition) %>% 
+  summarise(cond_prop_action = mean(na.omit(subj_prop_action)), 
+            sd = sd(na.omit(subj_prop_action)),
+            CI.Low = ci.low(na.omit(subj_prop_action)),
+            CI.High = ci.high(na.omit(subj_prop_action)),
+            n = n())  %>%
+              mutate(YMin = cond_prop_action - CI.Low, 
+                     YMax = cond_prop_action + CI.High)
+```
+
+Graph the proportion looking to action image.
+```{r}
+ggplot(action_look_sum) +
+  aes(x = condition, y = cond_prop_action, fill = condition) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(name = "Condition",values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  ggtitle("Test trials: Participants' mean proportion of looks to action image") +
+  xlab("Condition") +
+  ylab("Mean proportion of looks") +
+  geom_point(data = event_data_disambig_uniq, aes(x = condition, y = subj_prop_action), shape = 21, size = .5) +
+  geom_errorbar(data = action_look_sum, 
+                aes(ymin = YMin, ymax = YMax), width = .25)
+ggsave("../graphs/mean_prop_action_look.pdf", width = 6, height = 4)
+```
+
+Save updated data file:
+```{r}
+write.csv(event_data_disambig, "../data/full_test_data_for_analysis.csv")
+```
+
+# After hearing structure vs. before analysis
+
+We want to see if there is a significant difference in proportion looking at the action image by condition (before hearing The g- on test trials vs. after).
+
+Calculate participants' proportion of looks before hearing The g- vs. after:
+```{r}
+diff_prop_action_data = event_data %>% group_by(subid, trial_no) %>% 
+  mutate(pre_frame_prop = mean(na.omit(look_action_img[look_start < trial_frame_start])),
+         post_frame_prop = mean(na.omit(look_action_img[look_start >= trial_frame_start])))
+```
+
+Calculate the difference in proportion of looks between these times:
+```{r}
+diff_prop_action_data = diff_prop_action_data %>% group_by(subid, trial_no) %>%
+  mutate(trial_diff_prop_action = post_frame_prop - pre_frame_prop) %>%
+  filter(row_number() == 1)
+```
+
+Calculate each participant's average difference in action image proportion looking time across test trials.
+```{r}
+diff_prop_action_data = diff_prop_action_data %>% group_by(subid) %>% 
+  mutate(subj_diff_prop_action = mean(trial_diff_prop_action))
+```
+
+Summarize difference in proportion of looks across these times:
+```{r}
+diff_prop_action_look_sum = diff_prop_action_data %>%
+  filter(row_number() == 1) %>% 
+  group_by(condition) %>% 
+  summarise(cond_diff_prop_action = mean(na.omit(subj_diff_prop_action)),
+            sd = sd(na.omit(subj_diff_prop_action)),
+            CI.Low = ci.low(na.omit(subj_diff_prop_action)),
+            CI.High = ci.high(na.omit(subj_diff_prop_action)),
+            n = n())  %>%
+              mutate(YMin = cond_diff_prop_action - CI.Low, 
+                     YMax = cond_diff_prop_action + CI.High)
+```
+
+Graph the difference in proportion looking to action image before the structure vs. after.
+```{r}
+ggplot(diff_prop_action_look_sum) +
+  aes(x = condition, y = cond_diff_prop_action, fill = condition) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(name = "Condition",values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  ggtitle("Children: Difference in mean proportion of looks to action image") +
+  xlab("Condition") +
+  ylab("Diff. in mean prop. of looks before vs. after syntactic frame") +
+ geom_point(data = diff_prop_action_data, aes(x = condition, y = subj_diff_prop_action), shape = 21, size = .5) +
+  geom_errorbar(data = diff_prop_action_look_sum, 
+                aes(ymin = YMin, ymax = YMax), width = .25)
+ggsave("../graphs/diff_prop_action.pdf", width = 6, height = 4)
+```
+
+Save the dataframe with information about proportion of looks to the action image before hearing "The g-" vs. after:
+```{r}
+write.csv(diff_prop_action_data, "../data/diff_prop_action_data.csv")
+write.csv(diff_prop_action_data, "../../4_all_experiments/data/exp3_diff_prop_action.csv")
+```
+
