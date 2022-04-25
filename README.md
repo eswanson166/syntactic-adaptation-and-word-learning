@@ -29,7 +29,7 @@ For Experiment 3, because the study involved hand-coding children's looks, there
 - A folder containing the raw datavyu video codes for each child (the result of watching each child's video and hand-coding the direction of their eye movements)
 - The preprocessed Lookit data, the result of running the "preprocess-lookit-json.Rmd" script on the "What's a moop" JSON file
 - The full test data, the result of running the "datavyu-processing.Rmd" script, which combines the datavyu video codes with the Lookit data
-- The full test data for analysis, which is compiled by the "syntactic_adaptation_visualization.Rmd" script and is ready to be used in the "syntactic_adaptation_analysis.Rmd" script
+- The full test data for analysis, which is compiled by the "data_visualization.Rmd" script and is ready to be used in the "data_analysis.Rmd" script
 
 ### Graphs
 
