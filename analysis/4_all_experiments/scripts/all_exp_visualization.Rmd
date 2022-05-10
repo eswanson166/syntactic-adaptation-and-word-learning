@@ -333,6 +333,23 @@ exp2_diff = ggplot(exp2_diff_prop_action_sum) +
                 aes(ymin = YMin, ymax = YMax), width = .25)
 ```
 
+Graph the difference in proportion looking to action image before the structure vs. after with dots for each trial:
+```{r}
+exp2_diff_dots = ggplot(exp2_diff_prop_action_sum) +
+  aes(x = condition, y = cond_diff_prop_action, fill = condition) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(name = "Condition",values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  ggtitle("Adults: Difference in mean proportion of looks to action image") +
+  xlab("Condition") +
+  ylab(" Diff. in mean prop. of looks before vs. after syntactic frame") +
+ #geom_point(data = exp2_diff_prop_action, aes(x = condition, y = trial_diff_prop_action), shape = 21, size = .5) +
+  geom_dotplot(data = exp2_diff_prop_action, aes(x = condition, y = trial_diff_prop_action), binaxis = "y", stackdir = "center", binwidth = .03, alpha = .1) +
+  geom_errorbar(data = exp2_diff_prop_action_sum, 
+                aes(ymin = YMin, ymax = YMax), width = .25)
+exp2_diff_dots
+```
+
+
 ## Experiment 3
 
 Load data on difference in proportion looks to action image before vs. after hearing "The g-":
@@ -363,12 +380,28 @@ exp3_diff = ggplot(exp3_diff_prop_action_sum) +
   aes(x = condition, y = cond_diff_prop_action, fill = condition) +
   geom_bar(stat = "identity") +
   scale_fill_manual(name = "Condition",values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
-  ggtitle("Adults: Difference in mean proportion of looks to action image") +
+  ggtitle("Children: Difference in mean proportion of looks to action image") +
   xlab("Condition") +
   ylab(" Diff. in mean prop. of looks before vs. after syntactic frame") +
  geom_point(data = exp3_diff_prop_action, aes(x = condition, y = subj_diff_prop_action), shape = 21, size = .5) +
   geom_errorbar(data = exp3_diff_prop_action_sum, 
                 aes(ymin = YMin, ymax = YMax), width = .25)
+```
+
+
+Graph the difference in proportion looking to action image before the structure vs. after with dots for each trial:
+```{r}
+exp3_diff_dots = ggplot(exp3_diff_prop_action_sum) +
+  aes(x = condition, y = cond_diff_prop_action, fill = condition) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(name = "Condition",values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  ggtitle("Children: Difference in mean proportion of looks to action image") +
+  xlab("Condition") +
+  ylab(" Diff. in mean prop. of looks before vs. after syntactic frame") +
+  geom_dotplot(data = exp3_diff_prop_action, aes(x = condition, y = trial_diff_prop_action), binaxis = "y", stackdir = "center", binwidth = .03, alpha = .1) +
+  geom_errorbar(data = exp3_diff_prop_action_sum, 
+                aes(ymin = YMin, ymax = YMax), width = .25)
+exp3_diff_dots
 ```
 
 # Combined difference in proportion of looks to action image
@@ -400,7 +433,20 @@ all_exp_diff_action_prop_uniq = rbind(exp2_diff_prop_action_uniq, exp3_diff_prop
 all_exp_diff_action_prop_uniq$condition = factor(all_exp_diff_action_prop_uniq$condition, levels = c("baseline", "noun", "verb"))
 ```
 
-Make a bar graph that combines all three experiments' results:
+Combine trial-level data for both experiments:
+```{r}
+exp2_diff_prop_action_trial = exp2_diff_prop_action %>% select(condition, participant_id, trial_no, target_audio, trial_diff_prop_action, experiment)
+
+exp3_diff_prop_action_trial = exp3_diff_prop_action %>% select(condition, subid, trial_no, trial_audio, trial_diff_prop_action, experiment)
+
+exp3_diff_prop_action_trial = exp3_diff_prop_action_trial %>% 
+  rename(participant_id = subid, target_audio = trial_audio)
+
+all_exp_diff_prop_action_trial = rbind(exp2_diff_prop_action_trial, exp3_diff_prop_action_trial)
+```
+
+
+Make a bar graph that combines the two experiments' results:
 ```{r}
 ggplot(all_exp_diff_action_prop) +
   aes(x = condition, y = cond_diff_prop_action, fill = condition) +
@@ -418,4 +464,21 @@ ggplot(all_exp_diff_action_prop) +
 ggsave("../graphs/all_exp_diff_prop_action.pdf", width = 6, height = 4)
 ```
 
+Make a bar graph that combines the two experiments' results with dots for each trial:
+```{r}
+ggplot(all_exp_diff_action_prop) +
+  aes(x = condition, y = cond_diff_prop_action, fill = condition) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(name = "Condition",values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  ggtitle("Difference in proportion of looks to action image") +
+  xlab("Condition") +
+  ylab("Diff. in mean prop. of looks before vs. after syntactic frame") +
+  #geom_point(data = all_exp_diff_prop_action_trial, aes(x = condition, y = subj_diff_prop_action), shape = 20, size = .3) +
+  geom_dotplot(data = all_exp_diff_prop_action_trial, aes(x = condition, y = trial_diff_prop_action), binaxis = "y", stackdir = "center", binwidth = .03, alpha = .1) +
+  geom_errorbar(data = all_exp_diff_action_prop, 
+                aes(ymin = YMin, ymax = YMax), width = .25) +
+  facet_wrap(vars(experiment))
+
+ggsave("../graphs/all_exp_diff_prop_action_dotplot.pdf", width = 8, height = 4)
+```
 
