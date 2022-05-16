@@ -1,6 +1,6 @@
 # Syntactic adaptation and word learning
 
-This project accompanies the paper "Syntactic Adaptation and Word Learning in Children and Adults," under review. It includes materials and results for three experiments examining how syntactic adaptation supports children's word learning. The materials for this project are broken down into three sections: 1) experiments, 2) analysis, and 3) writing.
+This project accompanies the paper "Syntactic Adaptation and Word Learning in Children and Adults" (Swanson, Frank, & Degen), under review. It includes materials and results for three experiments examining how syntactic adaptation supports children's word learning. The materials for this project are broken down into three sections: 1) experiments, 2) analysis, and 3) writing.
 
 ## Experiments
 
