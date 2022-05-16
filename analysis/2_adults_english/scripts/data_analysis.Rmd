@@ -211,3 +211,13 @@ summary(diff.base)
 
 anova(diff.base, diff.lin)
 ```
+
+Rerun the linear regression with the noun condition as the baseline:
+```{r}
+diff_prop_action_data$condition_noun_bl = relevel(diff_prop_action_data$condition, ref = "noun")
+
+diff.lin.noun <- lmer(trial_diff_prop_action ~ condition_noun_bl + (1|participant_id), 
+            data = diff_prop_action_data, REML= F)
+summary(diff.lin.noun)
+```
+

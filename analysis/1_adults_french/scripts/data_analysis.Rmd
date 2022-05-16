@@ -9,9 +9,7 @@ source("helpers.R")
 library(lme4)
 library(dplyr)
 library(tidyverse)
-library(eyetrackingR)
 library(MuMIn)
-library(languageR)
 library(lmerTest)
 ```
 

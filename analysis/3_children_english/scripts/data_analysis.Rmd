@@ -10,7 +10,6 @@ library(lme4)
 library(dplyr)
 library(tidyverse)
 library(MuMIn)
-library(languageR)
 library(emmeans)
 library(lmerTest)
 ```
@@ -120,14 +119,14 @@ diff_prop_action_data = read.csv("../data/diff_prop_action_data.csv", stringsAsF
 
 Run a linear regression of difference in proportion looks:
 ```{r}
-diff.lin <- lmer(trial_diff_action_prop ~ condition + (1|subid), 
+diff.lin <- lmer(trial_diff_prop_action ~ condition + (1|subid), 
             data = diff_prop_action_data, REML= F)
 summary(diff.lin)
 ```
 
 Now, we conduct a likelihood ratio test between the logistic regression model and the model without the effect of condition:
 ```{r}
-diff.base <- lmer(trial_diff_action_prop ~ (1|subid), 
+diff.base <- lmer(trial_diff_prop_action ~ (1|subid), 
             data = diff_prop_action_data, REML= F)
 summary(diff.base)
 

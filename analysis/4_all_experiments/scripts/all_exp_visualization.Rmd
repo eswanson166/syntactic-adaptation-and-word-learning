@@ -167,6 +167,25 @@ ggplot(all_exp_test_sum) +
 ggsave("../graphs/all_exp_mean_prop_action_look.pdf", width = 8, height = 4)
 ```
 
+Here is a dotplot version that lets us better visualize the distribution of participants' looks:
+```{r}
+ggplot(all_exp_test_sum) +
+  aes(x = condition, y = cond_prop_action, fill = condition) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(name = "Condition",values = c(wes_palette("Royal1")[1], wes_palette("Royal1")[2], "dodgerblue3")) +
+  ggtitle("Mean proportion of looks to action image by experiment") +
+  xlab("Condition") +
+  ylab("Mean proportion of looks") +
+  #geom_point(data = all_exp_test_uniq, aes(x = condition, y = subj_prop_action),
+             #shape = 20, size = .3) +
+  geom_dotplot(data = all_exp_test_uniq, aes(x = condition, y = subj_prop_action), binaxis = "y", stackdir = "center", binwidth = .01, alpha = .15) +
+  geom_errorbar(data = all_exp_test_sum, 
+                aes(ymin = YMin, ymax = YMax), width = .25) +
+  facet_wrap(vars(experiment))
+
+ggsave("../graphs/all_exp_mean_prop_action_dots.pdf", width = 8, height = 4)
+```
+
 # Time course
 
 ## Experiment 1
@@ -388,7 +407,6 @@ exp3_diff = ggplot(exp3_diff_prop_action_sum) +
                 aes(ymin = YMin, ymax = YMax), width = .25)
 ```
 
-
 Graph the difference in proportion looking to action image before the structure vs. after with dots for each trial:
 ```{r}
 exp3_diff_dots = ggplot(exp3_diff_prop_action_sum) +
@@ -404,7 +422,7 @@ exp3_diff_dots = ggplot(exp3_diff_prop_action_sum) +
 exp3_diff_dots
 ```
 
-# Combined difference in proportion of looks to action image
+## Combined difference in proportion of looks to action image
 
 Combine the data for all three:
 ```{r}
@@ -473,12 +491,11 @@ ggplot(all_exp_diff_action_prop) +
   ggtitle("Difference in proportion of looks to action image") +
   xlab("Condition") +
   ylab("Diff. in mean prop. of looks before vs. after syntactic frame") +
-  #geom_point(data = all_exp_diff_prop_action_trial, aes(x = condition, y = subj_diff_prop_action), shape = 20, size = .3) +
   geom_dotplot(data = all_exp_diff_prop_action_trial, aes(x = condition, y = trial_diff_prop_action), binaxis = "y", stackdir = "center", binwidth = .03, alpha = .1) +
   geom_errorbar(data = all_exp_diff_action_prop, 
                 aes(ymin = YMin, ymax = YMax), width = .25) +
   facet_wrap(vars(experiment))
 
-ggsave("../graphs/all_exp_diff_prop_action_dotplot.pdf", width = 8, height = 4)
+ggsave("../graphs/all_exp_diff_prop_action_dotplot.pdf", width = 8, height = 5)
 ```
 

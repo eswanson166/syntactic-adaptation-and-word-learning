@@ -1,6 +1,6 @@
 # Syntactic adaptation and word learning
 
-This project presents materials and results for three experiments examining how syntactic adaptation supports children's word learning. The materials for this project are broken down into three sections: 1) experiments, 2) analysis, and 3) writing.
+This project accompanies the paper "Syntactic Adaptation and Word Learning in Children and Adults," under review. It includes materials and results for three experiments examining how syntactic adaptation supports children's word learning. The materials for this project are broken down into three sections: 1) experiments, 2) analysis, and 3) writing.
 
 ## Experiments
 
@@ -30,6 +30,7 @@ For Experiment 3, because the study involved hand-coding children's looks, there
 - The preprocessed Lookit data, the result of running the "preprocess-lookit-json.Rmd" script on the "What's a moop" JSON file
 - The full test data, the result of running the "datavyu-processing.Rmd" script, which combines the datavyu video codes with the Lookit data
 - The full test data for analysis, which is compiled by the "data_visualization.Rmd" script and is ready to be used in the "data_analysis.Rmd" script
+- The data file showing a summary of the difference in proportion of looks to the action image before vs. after hearing the syntactic frame
 
 ### Graphs
 
